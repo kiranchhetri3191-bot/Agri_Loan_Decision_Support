@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Farmer Advisory System",
+    page_title="Advanced Farmer Advisory System",
     page_icon="🌾",
     layout="wide"
 )
@@ -11,18 +13,16 @@ st.set_page_config(
 # ---------------- TITLE ----------------
 st.markdown(
     """
-    <h1 style='text-align:center; color:#2E8B57;'>
-    🌾 Smart Farmer Advisory System
-    </h1>
+    <h1 style='text-align:center; color:#2E8B57;'>🌾 Smart Farmer Advisory System</h1>
     <p style='text-align:center; font-size:18px;'>
-    Crop • Weather • Fertilizer • Pest Advisory
+    Crop • Weather • Fertilizer • Yield • Market • Graphs
     </p>
     """,
     unsafe_allow_html=True
 )
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.header("👨‍🌾 Farmer Details")
+# ---------------- SIDEBAR INPUT ----------------
+st.sidebar.header("👨‍🌾 Farmer Inputs")
 
 soil_type = st.sidebar.selectbox(
     "Soil Type",
@@ -34,107 +34,57 @@ season = st.sidebar.selectbox(
     ["Kharif", "Rabi", "Zaid"]
 )
 
-rainfall = st.sidebar.slider(
-    "Annual Rainfall (mm)",
-    200, 2000, 800
-)
-
-temperature = st.sidebar.slider(
-    "Average Temperature (°C)",
-    10, 45, 28
-)
+rainfall = st.sidebar.slider("Annual Rainfall (mm)", 200, 2000, 850)
+temperature = st.sidebar.slider("Temperature (°C)", 10, 45, 30)
+land_size = st.sidebar.slider("Land Size (Acres)", 1, 20, 5)
 
 crop_issue = st.sidebar.selectbox(
-    "Any Crop Issue?",
+    "Crop Problem",
     ["None", "Pest Attack", "Yellow Leaves", "Low Yield"]
 )
 
-st.sidebar.markdown("---")
-st.sidebar.info("Developed using Python + Streamlit")
-
-# ---------------- LOGIC FUNCTIONS ----------------
-def recommend_crop(soil, season, rain):
+# ---------------- CORE LOGIC ----------------
+def crop_recommendation(soil, season, rain):
     if season == "Kharif":
-        if soil in ["Alluvial", "Black"] and rain > 700:
-            return "Rice, Maize, Cotton"
-        else:
-            return "Millets, Pulses"
+        return "Rice, Cotton, Maize" if rain > 700 else "Millets, Pulses"
     elif season == "Rabi":
-        if soil in ["Alluvial", "Red"]:
-            return "Wheat, Mustard, Barley"
-        else:
-            return "Gram, Peas"
+        return "Wheat, Mustard" if soil in ["Alluvial", "Red"] else "Gram"
     else:
-        return "Watermelon, Cucumber, Fodder Crops"
+        return "Watermelon, Vegetables"
 
 def fertilizer_advice(soil):
-    if soil == "Black":
-        return "Use Nitrogen & Phosphorus based fertilizers"
-    elif soil == "Red":
-        return "Add Organic Manure + Potassium"
-    elif soil == "Alluvial":
-        return "Balanced NPK fertilizer recommended"
-    else:
-        return "Use Compost & Organic Fertilizers"
+    return {
+        "Black": "Nitrogen & Phosphorus",
+        "Red": "Organic manure + Potash",
+        "Alluvial": "Balanced NPK",
+        "Laterite": "Organic compost",
+        "Sandy": "Frequent organic fertilizer"
+    }[soil]
 
-def pest_advisory(issue):
-    if issue == "Pest Attack":
-        return "Use Neem oil spray or consult agri officer"
-    elif issue == "Yellow Leaves":
-        return "Possible Nitrogen deficiency – apply Urea"
-    elif issue == "Low Yield":
-        return "Check soil health & irrigation schedule"
-    else:
-        return "No pest issue detected"
+def pest_advice(issue):
+    return {
+        "Pest Attack": "Neem oil or bio-pesticides",
+        "Yellow Leaves": "Nitrogen deficiency – apply urea",
+        "Low Yield": "Check soil & irrigation",
+        "None": "No pest issues detected"
+    }[issue]
 
 def weather_advice(temp, rain):
     if temp > 35:
-        return "High temperature – increase irrigation"
+        return "Heat stress – increase irrigation"
     elif rain < 400:
         return "Low rainfall – use drip irrigation"
     else:
-        return "Weather conditions are favorable"
+        return "Weather is favorable"
 
-# ---------------- ADVISORY OUTPUT ----------------
-st.markdown("## 📊 Farmer Advisory Report")
+def yield_estimation(acres, rain):
+    base_yield = 20
+    factor = 1.2 if rain > 700 else 0.8
+    return round(acres * base_yield * factor, 2)
 
-crop = recommend_crop(soil_type, season, rainfall)
+# ---------------- RESULTS ----------------
+crop = crop_recommendation(soil_type, season, rainfall)
 fertilizer = fertilizer_advice(soil_type)
-pest = pest_advisory(crop_issue)
+pest = pest_advice(crop_issue)
 weather = weather_advice(temperature, rainfall)
-
-data = {
-    "Category": [
-        "Recommended Crops",
-        "Fertilizer Advice",
-        "Pest Advisory",
-        "Weather Advisory"
-    ],
-    "Suggestion": [
-        crop,
-        fertilizer,
-        pest,
-        weather
-    ]
-}
-
-df = pd.DataFrame(data)
-
-st.table(df)
-
-# ---------------- SUMMARY CARDS ----------------
-st.markdown("## 🌱 Quick Summary")
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.success(f"🌾 Crops\n\n{crop}")
-col2.info(f"🧪 Fertilizer\n\n{fertilizer}")
-col3.warning(f"🐛 Pest\n\n{pest}")
-col4.success(f"🌦️ Weather\n\n{weather}")
-
-# ---------------- FOOTER ----------------
-st.markdown("---")
-st.markdown(
-    "<p style='text-align:center;'>© 2025 Farmer Advisory System | Python Project</p>",
-    unsafe_allow_html=True
-)
+yiel
