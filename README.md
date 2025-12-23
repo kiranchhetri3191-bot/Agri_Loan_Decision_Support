@@ -125,11 +125,11 @@ Technology is used strictly as a **support tool for financial analysis**, not as
 
 2.Run the application
 
-streamlit run app.py
+  streamlit run app.py
 
 3.Upload an agricultural loan CSV file and explore insights
 
-⚖️ Legal & Ethical Note
+## ⚖️ Legal & Ethical Note
 
 This project is developed strictly for educational and analytical purposes
 
@@ -141,4 +141,32 @@ The system does not make lending decisions
 
 The project follows ethical and responsible use of data.
 
-🌱 Practical Use Cases
+##🌱 Practical Use Cases
+
+B.Com / Finance students – applied academic project
+
+NGOs & Cooperatives – understanding common risk drivers
+
+Training programs – financial literacy and awareness
+
+Academic research – agricultural finance analysis
+
+🔮 Future Scope
+
+District or state-level risk analysis
+
+Year-wise agricultural loan trend comparison
+
+Inclusion of basic weather risk indicators
+
+Simplified mobile-friendly interface
+
+👤 Author
+
+Kiran Chhetri
+Bachelor of Commerce (B.Com)
+Focus Area: Accounting, Taxation & Financial Analysis
+
+⭐ Closing Note
+
+This project highlights how financial and commerce principles can be combined with simple analytical tools to improve risk awareness and responsible lending, without replacing human judgment or institutional decision-making.
