@@ -1,8 +1,9 @@
 # app.py
 # Smart Farmer Advisory + Loan Risk System
-# Advisory + Yield + Loan Prediction + Downloads
+# Location-based Climate | Yield | Loan Prediction | Safe & Legal
 
 import os
+import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -23,13 +24,44 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
 # =========================================================
+# SAFE OPEN-SOURCE WEATHER (OPEN-METEO)
+# =========================================================
+
+def get_lat_lon(place):
+    url = "https://geocoding-api.open-meteo.com/v1/search"
+    params = {"name": place, "count": 1, "language": "en"}
+    r = requests.get(url, params=params, timeout=10)
+    data = r.json()
+    if "results" not in data:
+        return None, None
+    return data["results"][0]["latitude"], data["results"][0]["longitude"]
+
+
+def get_climate(lat, lon):
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "past_days": 30,
+        "timezone": "auto"
+    }
+    r = requests.get(url, params=params, timeout=10)
+    data = r.json()
+
+    avg_temp = sum(data["daily"]["temperature_2m_mean"]) / 30
+    total_rain = sum(data["daily"]["precipitation_sum"])
+
+    return round(avg_temp, 1), round(total_rain, 1)
+
+# =========================================================
 # DOWNLOAD HELPERS
 # =========================================================
 
 def to_excel(df):
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Loan_Predictions")
+        df.to_excel(writer, index=False)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -40,12 +72,10 @@ def to_pdf(df):
     styles = getSampleStyleSheet()
     elements = [Paragraph("Agricultural Loan Risk Report", styles["Title"])]
 
-    table_data = [df.columns.tolist()] + df.values.tolist()
-    table = Table(table_data, repeatRows=1)
+    table = Table([df.columns.tolist()] + df.values.tolist(), repeatRows=1)
     table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgreen),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER")
     ]))
 
     elements.append(table)
@@ -63,29 +93,25 @@ st.set_page_config(
     layout="wide"
 )
 
-DATA_FILE = "agri_loan_data.csv"
-MODEL_FILE = "loan_model.joblib"
-RANDOM_STATE = 42
-
 # =========================================================
 # TITLE
 # =========================================================
 
 st.markdown(
-    """
-    <h1 style='text-align:center; color:#2E8B57;'>🌾 Smart Farmer Advisory & Loan Risk System</h1>
-    <p style='text-align:center; font-size:18px;'>
-    Advisory • Yield • Credit Risk • CSV / Excel Input
-    </p>
-    """,
+    "<h1 style='text-align:center;color:#2E8B57;'>🌾 Smart Farmer Advisory & Loan Risk System</h1>",
     unsafe_allow_html=True
 )
 
 # =========================================================
-# PART 1: FARMER ADVISORY (LEFT SIDEBAR)
+# PART 1: FARMER ADVISORY (LOCATION BASED)
 # =========================================================
 
-st.sidebar.header("👨‍🌾 Farmer Advisory Inputs")
+st.sidebar.header("📍 Location Based Advisory")
+
+place = st.sidebar.text_input(
+    "City / Town / Village",
+    placeholder="e.g. Birpara, Pune, Jalpaiguri"
+)
 
 soil_type = st.sidebar.selectbox(
     "Soil Type",
@@ -97,14 +123,11 @@ season = st.sidebar.selectbox(
     ["Kharif", "Rabi", "Zaid"]
 )
 
-rainfall = st.sidebar.slider("Annual Rainfall (mm)", 200, 2000, 850)
-temperature = st.sidebar.slider("Temperature (°C)", 10, 45, 30)
 land_size = st.sidebar.slider("Land Size (Acres)", 1, 20, 5)
 
 def yield_estimation(acres, rain, temp, soil, season):
-    base_yield = 20
-
-    rain_factor = 0.7 if rain < 500 else 1.1 if rain <= 1200 else 0.9
+    base = 20
+    rain_factor = 0.7 if rain < 100 else 1.1 if rain < 400 else 0.9
     temp_factor = 1.1 if 20 <= temp <= 35 else 0.85
 
     soil_factor = {
@@ -115,144 +138,108 @@ def yield_estimation(acres, rain, temp, soil, season):
         "Sandy": 0.8
     }[soil]
 
-    season_factor = {
-        "Kharif": 1.1,
-        "Rabi": 1.0,
-        "Zaid": 0.9
-    }[season]
+    season_factor = {"Kharif": 1.1, "Rabi": 1.0, "Zaid": 0.9}[season]
 
-    return round(acres * base_yield * rain_factor * temp_factor * soil_factor * season_factor, 2)
+    return round(acres * base * rain_factor * temp_factor * soil_factor * season_factor, 2)
 
-yield_est = yield_estimation(land_size, rainfall, temperature, soil_type, season)
+if place:
+    lat, lon = get_lat_lon(place)
 
-st.sidebar.markdown("### 🌱 Advisory Output")
-st.sidebar.success(f"Estimated Yield: {yield_est} Quintals")
+    if lat:
+        temperature, rainfall = get_climate(lat, lon)
 
-if rainfall < 500:
-    st.sidebar.warning("Low rainfall: Drip irrigation recommended")
-elif rainfall > 1500:
-    st.sidebar.info("High rainfall: Ensure drainage")
+        st.sidebar.markdown("### 🌦️ Auto Climate (Last 30 Days)")
+        st.sidebar.write(f"🌡️ Avg Temp: **{temperature} °C**")
+        st.sidebar.write(f"🌧️ Rainfall: **{rainfall} mm**")
 
-if temperature > 38:
-    st.sidebar.warning("High temperature stress possible")
+        yield_est = yield_estimation(land_size, rainfall, temperature, soil_type, season)
+        st.sidebar.success(f"🌾 Estimated Yield: {yield_est} Quintals")
 
-if soil_type == "Sandy":
-    st.sidebar.info("Sandy soil needs frequent irrigation & organic matter")
+        if rainfall < 100:
+            st.sidebar.warning("Low rainfall trend – irrigation recommended")
+        if temperature > 38:
+            st.sidebar.warning("Heat stress possible")
+    else:
+        st.sidebar.error("Location not found")
 
 # =========================================================
-# PART 2: LOAN DATA + MODEL
+# PART 2: LOAN MODEL
 # =========================================================
+
+DATA_FILE = "agri_loan_data.csv"
+MODEL_FILE = "loan_model.joblib"
 
 def generate_loan_data(n=1500):
-    rng = np.random.default_rng(RANDOM_STATE)
-    crops = ["Rice", "Wheat", "Cotton", "Sugarcane", "Pulses"]
-
+    rng = np.random.default_rng(42)
     df = pd.DataFrame({
         "farmer_age": rng.integers(21, 70, n),
         "land_size_acres": rng.uniform(0.5, 20, n),
-        "crop_type": rng.choice(crops, n),
+        "crop_type": rng.choice(["Rice","Wheat","Cotton","Sugarcane","Pulses"], n),
         "annual_income": rng.integers(100000, 1500000, n),
-        "irrigation_available": rng.choice(["Yes", "No"], n),
-        "existing_loan": rng.choice(["Yes", "No"], n),
-        "previous_default": rng.choice(["Yes", "No"], n, p=[0.15, 0.85]),
+        "irrigation_available": rng.choice(["Yes","No"], n),
+        "existing_loan": rng.choice(["Yes","No"], n),
+        "previous_default": rng.choice(["Yes","No"], n, p=[0.15,0.85]),
         "credit_score": rng.integers(300, 900, n),
         "loan_amount_requested": rng.integers(50000, 2000000, n),
-        "loan_tenure_years": rng.integers(1, 7, n),
+        "loan_tenure_years": rng.integers(1,7,n),
     })
 
     score = (
-        (df["credit_score"] >= 650).astype(int) +
-        (df["previous_default"] == "No").astype(int) +
-        (df["annual_income"] >= 300000).astype(int) +
-        (df["loan_amount_requested"] <= 5 * df["annual_income"]).astype(int) +
-        (df["irrigation_available"] == "Yes").astype(int)
+        (df.credit_score >= 650).astype(int) +
+        (df.previous_default == "No").astype(int) +
+        (df.annual_income >= 300000).astype(int)
     )
 
-    df["loan_approved"] = np.where(score >= 3, "Yes", "No")
+    df["loan_approved"] = np.where(score >= 2, "Yes", "No")
     return df
 
 if not os.path.exists(DATA_FILE):
     generate_loan_data().to_csv(DATA_FILE, index=False)
 
 df = pd.read_csv(DATA_FILE)
-
 X = df.drop(columns=["loan_approved"])
 y = df["loan_approved"]
 
-cat_cols = X.select_dtypes(include="object").columns
-num_cols = X.select_dtypes(exclude="object").columns
-
 preprocess = ColumnTransformer([
-    ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
-    ("num", "passthrough", num_cols)
+    ("cat", OneHotEncoder(handle_unknown="ignore"), X.select_dtypes("object").columns),
+    ("num", "passthrough", X.select_dtypes(exclude="object").columns)
 ])
 
 def train_model():
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=RANDOM_STATE, stratify=y
-    )
-
-    models = [
-        LogisticRegression(max_iter=1000),
-        RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE)
-    ]
-
-    best_model, best_acc = None, 0
-
-    for m in models:
-        pipe = Pipeline([("prep", preprocess), ("model", m)])
-        pipe.fit(X_train, y_train)
-        acc = accuracy_score(y_test, pipe.predict(X_test))
-        if acc > best_acc:
-            best_acc = acc
-            best_model = pipe
-
-    joblib.dump(best_model, MODEL_FILE)
-    return best_model
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, stratify=y)
+    pipe = Pipeline([("prep", preprocess), ("model", RandomForestClassifier(n_estimators=200))])
+    pipe.fit(Xtr, ytr)
+    joblib.dump(pipe, MODEL_FILE)
+    return pipe
 
 model = joblib.load(MODEL_FILE) if os.path.exists(MODEL_FILE) else train_model()
 
 # =========================================================
-# PART 3: CSV / EXCEL UPLOAD
+# PART 3: FILE UPLOAD & PREDICTION
 # =========================================================
 
-st.markdown("## 📂 Loan Prediction via CSV / Excel Upload")
+st.markdown("## 📂 Loan Prediction via CSV / Excel")
 
-uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+file = st.file_uploader("Upload CSV or Excel", type=["csv","xlsx"])
 
-if uploaded_file:
-    input_data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+if file:
+    data = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
 
-    st.subheader("Uploaded Data Preview")
-    st.dataframe(input_data.head())
+    data["Loan_Decision"] = model.predict(data)
+    data["Approval_Probability_%"] = (model.predict_proba(data).max(axis=1) * 100).round(2)
 
-    predictions = model.predict(input_data)
-    probabilities = model.predict_proba(input_data).max(axis=1) * 100
+    st.dataframe(data)
 
-    def risk_logic(row):
-        if row["credit_score"] < 600 or row["previous_default"] == "Yes":
-            return "High"
-        if row["loan_amount_requested"] > 5 * row["annual_income"]:
-            return "Medium"
-        return "Low"
-
-    input_data["Loan_Decision"] = predictions
-    input_data["Approval_Probability_%"] = probabilities.round(2)
-    input_data["Risk_Category"] = input_data.apply(risk_logic, axis=1)
-
-    st.success("Prediction completed")
-    st.dataframe(input_data)
-
-    st.download_button("⬇️ Download CSV", input_data.to_csv(index=False), "loan_predictions.csv", "text/csv")
-    st.download_button("⬇️ Download Excel", to_excel(input_data), "loan_predictions.xlsx")
-    st.download_button("⬇️ Download PDF", to_pdf(input_data), "loan_predictions.pdf")
+    st.download_button("⬇️ CSV", data.to_csv(index=False), "loan_predictions.csv")
+    st.download_button("⬇️ Excel", to_excel(data), "loan_predictions.xlsx")
+    st.download_button("⬇️ PDF", to_pdf(data), "loan_predictions.pdf")
 
 # =========================================================
-# FOOTER
+# FOOTER + LEGAL SAFETY
 # =========================================================
 
 st.markdown("---")
-st.markdown(
-    "<p style='text-align:center;'>Smart Farmer Advisory & Loan Risk System | Advisory + Credit Intelligence</p>",
-    unsafe_allow_html=True
+st.caption(
+    "Disclaimer: Uses open-source weather data (Open-Meteo). "
+    "Outputs are indicative and for educational/advisory purposes only."
 )
