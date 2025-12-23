@@ -1,12 +1,11 @@
 # app.py
 # Smart Farmer Advisory + Loan Risk System
-# Flat structure | CSV / Excel input supported | Streamlit
+# Advisory + Yield + Loan Prediction + Downloads
 
 import os
 import numpy as np
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
 import joblib
 from io import BytesIO
 
@@ -24,7 +23,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
 # =========================================================
-# DOWNLOAD HELPERS (MUST BE AT TOP)
+# DOWNLOAD HELPERS
 # =========================================================
 
 def to_excel(df):
@@ -54,7 +53,10 @@ def to_pdf(df):
     buffer.seek(0)
     return buffer
 
-# ---------------- PAGE CONFIG ----------------
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
 st.set_page_config(
     page_title="Smart Farmer Advisory & Loan Risk System",
     page_icon="🌾",
@@ -65,7 +67,10 @@ DATA_FILE = "agri_loan_data.csv"
 MODEL_FILE = "loan_model.joblib"
 RANDOM_STATE = 42
 
-# ---------------- TITLE ----------------
+# =========================================================
+# TITLE
+# =========================================================
+
 st.markdown(
     """
     <h1 style='text-align:center; color:#2E8B57;'>🌾 Smart Farmer Advisory & Loan Risk System</h1>
@@ -77,25 +82,62 @@ st.markdown(
 )
 
 # =========================================================
-# PART 1: FARMER ADVISORY
+# PART 1: FARMER ADVISORY (LEFT SIDEBAR)
 # =========================================================
 
 st.sidebar.header("👨‍🌾 Farmer Advisory Inputs")
 
-soil_type = st.sidebar.selectbox("Soil Type", ["Alluvial", "Black", "Red", "Laterite", "Sandy"])
-season = st.sidebar.selectbox("Season", ["Kharif", "Rabi", "Zaid"])
+soil_type = st.sidebar.selectbox(
+    "Soil Type",
+    ["Alluvial", "Black", "Red", "Laterite", "Sandy"]
+)
+
+season = st.sidebar.selectbox(
+    "Season",
+    ["Kharif", "Rabi", "Zaid"]
+)
+
 rainfall = st.sidebar.slider("Annual Rainfall (mm)", 200, 2000, 850)
 temperature = st.sidebar.slider("Temperature (°C)", 10, 45, 30)
 land_size = st.sidebar.slider("Land Size (Acres)", 1, 20, 5)
 
-def yield_estimation(acres, rain):
+def yield_estimation(acres, rain, temp, soil, season):
     base_yield = 20
-    factor = 1.2 if rain > 700 else 0.8
-    return round(acres * base_yield * factor, 2)
 
-yield_est = yield_estimation(land_size, rainfall)
+    rain_factor = 0.7 if rain < 500 else 1.1 if rain <= 1200 else 0.9
+    temp_factor = 1.1 if 20 <= temp <= 35 else 0.85
 
+    soil_factor = {
+        "Alluvial": 1.2,
+        "Black": 1.15,
+        "Red": 1.0,
+        "Laterite": 0.9,
+        "Sandy": 0.8
+    }[soil]
+
+    season_factor = {
+        "Kharif": 1.1,
+        "Rabi": 1.0,
+        "Zaid": 0.9
+    }[season]
+
+    return round(acres * base_yield * rain_factor * temp_factor * soil_factor * season_factor, 2)
+
+yield_est = yield_estimation(land_size, rainfall, temperature, soil_type, season)
+
+st.sidebar.markdown("### 🌱 Advisory Output")
 st.sidebar.success(f"Estimated Yield: {yield_est} Quintals")
+
+if rainfall < 500:
+    st.sidebar.warning("Low rainfall: Drip irrigation recommended")
+elif rainfall > 1500:
+    st.sidebar.info("High rainfall: Ensure drainage")
+
+if temperature > 38:
+    st.sidebar.warning("High temperature stress possible")
+
+if soil_type == "Sandy":
+    st.sidebar.info("Sandy soil needs frequent irrigation & organic matter")
 
 # =========================================================
 # PART 2: LOAN DATA + MODEL
@@ -142,7 +184,7 @@ num_cols = X.select_dtypes(exclude="object").columns
 
 preprocess = ColumnTransformer([
     ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
-    ("num", "passthrough", num_cols),
+    ("num", "passthrough", num_cols)
 ])
 
 def train_model():
@@ -152,10 +194,11 @@ def train_model():
 
     models = [
         LogisticRegression(max_iter=1000),
-        RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE),
+        RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE)
     ]
 
     best_model, best_acc = None, 0
+
     for m in models:
         pipe = Pipeline([("prep", preprocess), ("model", m)])
         pipe.fit(X_train, y_train)
@@ -180,6 +223,7 @@ uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"
 if uploaded_file:
     input_data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
 
+    st.subheader("Uploaded Data Preview")
     st.dataframe(input_data.head())
 
     predictions = model.predict(input_data)
@@ -203,9 +247,12 @@ if uploaded_file:
     st.download_button("⬇️ Download Excel", to_excel(input_data), "loan_predictions.xlsx")
     st.download_button("⬇️ Download PDF", to_pdf(input_data), "loan_predictions.pdf")
 
-# ---------------- FOOTER ----------------
+# =========================================================
+# FOOTER
+# =========================================================
+
 st.markdown("---")
 st.markdown(
-    "<p style='text-align:center;'>Smart Farmer Advisory & Loan Risk System | CSV & Excel Enabled</p>",
+    "<p style='text-align:center;'>Smart Farmer Advisory & Loan Risk System | Advisory + Credit Intelligence</p>",
     unsafe_allow_html=True
 )
