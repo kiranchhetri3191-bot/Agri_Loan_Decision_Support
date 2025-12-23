@@ -1,6 +1,6 @@
 # =========================================================
 # AGRICULTURAL LOAN DECISION SUPPORT SYSTEM (DSS)
-# FINAL POLISHED VERSION – GRAPH READABILITY IMPROVED
+# FINAL POLISHED VERSION – ORDER & COLOR LOCKED
 # Safe | Legal | Educational | Visual | Impactful
 # =========================================================
 
@@ -177,7 +177,6 @@ if file:
     st.success("✅ Risk & Advisory Analysis Completed")
     st.dataframe(df)
 
-    # ---------------- DOWNLOAD CSV ----------------
     st.download_button(
         "⬇️ Download Analysis CSV",
         df.to_csv(index=False).encode("utf-8"),
@@ -189,19 +188,28 @@ if file:
     st.divider()
     st.header("📊 Dashboard Insights")
 
+    risk_order = ["Low Risk", "Medium Risk", "High Risk"]
+    risk_colors = {
+        "Low Risk": "#2E7D32",
+        "Medium Risk": "#F9A825",
+        "High Risk": "#C62828"
+    }
+
     col1, col2 = st.columns(2)
 
-    # ---- PIE CHART ----
+    # ---- PIE (ORDER & COLOR LOCKED) ----
     with col1:
+        risk_counts = df["Risk_Category"].value_counts().reindex(risk_order, fill_value=0)
+
         fig, ax = plt.subplots(figsize=(6, 6))
-        df["Risk_Category"].value_counts().plot.pie(
+        ax.pie(
+            risk_counts.values,
+            labels=risk_counts.index,
             autopct="%1.1f%%",
             startangle=90,
-            colors=["#2E7D32", "#F9A825", "#C62828"],
-            wedgeprops={"edgecolor": "white"},
-            ax=ax
+            colors=[risk_colors[r] for r in risk_counts.index],
+            wedgeprops={"edgecolor": "white"}
         )
-        ax.set_ylabel("")
         ax.set_title("Overall Risk Distribution", fontsize=14, fontweight="bold")
         st.pyplot(fig)
 
@@ -217,29 +225,20 @@ if file:
 
     # ---- SCATTER ----
     fig, ax = plt.subplots(figsize=(8, 5))
-    color_map = df["Risk_Category"].map({
-        "Low Risk": "#2E7D32",
-        "Medium Risk": "#F9A825",
-        "High Risk": "#C62828"
-    })
-    ax.scatter(df["annual_farm_income"], df["loan_amount"], c=color_map, alpha=0.6)
+    ax.scatter(
+        df["annual_farm_income"],
+        df["loan_amount"],
+        c=df["Risk_Category"].map(risk_colors),
+        alpha=0.6
+    )
     ax.set_title("Income vs Loan Amount (Risk Perspective)", fontsize=14, fontweight="bold")
     ax.set_xlabel("Annual Farm Income (₹)")
     ax.set_ylabel("Loan Amount (₹)")
     ax.grid(alpha=0.3)
     st.pyplot(fig)
 
-    # ---- RISK CATEGORY COUNT (FIXED COLORS) ----
+    # ---- BAR (ORDER & COLOR LOCKED) ----
     st.subheader("Risk Category Count")
-
-    risk_order = ["Low Risk", "Medium Risk", "High Risk"]
-    risk_counts = df["Risk_Category"].value_counts().reindex(risk_order, fill_value=0)
-
-    risk_colors = {
-        "Low Risk": "#2E7D32",
-        "Medium Risk": "#F9A825",
-        "High Risk": "#C62828"
-    }
 
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.bar(
@@ -253,7 +252,7 @@ if file:
     ax.grid(axis="y", alpha=0.3)
     st.pyplot(fig)
 
-    # ---- BOXPLOT: INCOME BY RISK ----
+    # ---- BOXPLOT ----
     st.subheader("Income Distribution by Risk Category")
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -264,13 +263,13 @@ if file:
     plt.suptitle("")
     st.pyplot(fig)
 
-    # ---- STACKED BAR: CROP vs RISK ----
+    # ---- STACKED BAR: CROP ----
     st.subheader("Crop Type vs Risk Category")
 
-    crop_risk = df.groupby("crop_type")["Risk_Category"].value_counts().unstack().fillna(0)
+    crop_risk = df.groupby("crop_type")["Risk_Category"].value_counts().unstack().reindex(columns=risk_order, fill_value=0)
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    crop_risk[risk_order].plot(
+    crop_risk.plot(
         kind="bar",
         stacked=True,
         color=[risk_colors[r] for r in risk_order],
@@ -283,13 +282,13 @@ if file:
     ax.grid(axis="y", alpha=0.3)
     st.pyplot(fig)
 
-    # ---- STACKED BAR: IRRIGATION vs RISK ----
+    # ---- STACKED BAR: IRRIGATION ----
     st.subheader("Irrigation Type vs Risk Category")
 
-    irrig_risk = df.groupby("irrigation_type")["Risk_Category"].value_counts().unstack().fillna(0)
+    irrig_risk = df.groupby("irrigation_type")["Risk_Category"].value_counts().unstack().reindex(columns=risk_order, fill_value=0)
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    irrig_risk[risk_order].plot(
+    irrig_risk.plot(
         kind="bar",
         stacked=True,
         color=[risk_colors[r] for r in risk_order],
@@ -315,7 +314,7 @@ if file:
             styles["Normal"]
         ))
         story.append(Paragraph(f"Total Records Analysed: {len(df)}", styles["Normal"]))
-        story.append(Paragraph(str(df["Risk_Category"].value_counts()), styles["Normal"]))
+        story.append(Paragraph(str(risk_counts), styles["Normal"]))
 
         doc.build(story)
         buffer.seek(0)
