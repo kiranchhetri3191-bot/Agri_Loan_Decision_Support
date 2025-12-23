@@ -2,9 +2,7 @@ streamlit
 pandas
 numpy
 scikit-learn
-matplotlib
 joblib
 openpyxl
-reportlab==4.1.0
-xlsxwriter
-
+reportlab
+matplotlib
