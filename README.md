@@ -165,3 +165,4 @@ Focus Area: Accounting, Taxation & Financial Analysis
 ## ⭐ Closing Note
 
 This project highlights how financial and commerce principles can be combined with simple analytical tools to improve risk awareness and responsible lending, without replacing human judgment or institutional decision-making.
+live demo = https://agriloandecisionsupport-kgb4neaappwslwtze6y7eyx.streamlit.app/
