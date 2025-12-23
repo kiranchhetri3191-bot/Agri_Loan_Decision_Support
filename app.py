@@ -15,14 +15,13 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 
 # =========================================================
-# SAFE LOCATION SEARCH (OPENSTREETMAP – NON-PERSONAL)
+# SAFE LOCATION SEARCH (OPENSTREETMAP)
 # =========================================================
 
 def search_locations(query, state):
@@ -37,7 +36,7 @@ def search_locations(query, state):
     return r.json() if r.status_code == 200 else []
 
 # =========================================================
-# SAFE WEATHER DATA (OPEN-METEO – INDICATIVE)
+# SAFE WEATHER DATA (OPEN-METEO)
 # =========================================================
 
 def get_climate(lat, lon):
@@ -58,7 +57,7 @@ def get_climate(lat, lon):
     return round(avg_temp, 1), round(total_rain, 1)
 
 # =========================================================
-# SAFE EXPORT HELPERS
+# EXPORT HELPERS
 # =========================================================
 
 def to_excel(df):
@@ -101,7 +100,7 @@ st.markdown(
 )
 
 # =========================================================
-# LOCATION-BASED ADVISORY (SAFE)
+# LOCATION ADVISORY
 # =========================================================
 
 st.sidebar.header("📍 Location Advisory (India)")
@@ -117,10 +116,7 @@ state = st.sidebar.selectbox(
     ]
 )
 
-search_text = st.sidebar.text_input(
-    "Search Village / Town / City",
-    placeholder="Start typing location name..."
-)
+search_text = st.sidebar.text_input("Search Village / Town / City")
 
 locations = search_locations(search_text, state) if search_text else []
 
@@ -132,19 +128,12 @@ if locations:
 
     temp, rain = get_climate(lat, lon)
 
-    st.sidebar.markdown("### 🌦 Regional Climate Indicator")
-    st.sidebar.write(f"🌡 Avg Temperature: {temp} °C")
+    st.sidebar.markdown("### 🌦 Climate Indicator")
+    st.sidebar.write(f"🌡 Avg Temp: {temp} °C")
     st.sidebar.write(f"🌧 Rainfall (30 days): {rain} mm")
 
-    if rain < 100:
-        st.sidebar.info("Rainfall Trend: Low")
-    elif rain < 400:
-        st.sidebar.info("Rainfall Trend: Moderate")
-    else:
-        st.sidebar.info("Rainfall Trend: High")
-
 # =========================================================
-# LOAN RISK INDICATOR MODEL (NON-DECISION)
+# MODEL TRAINING (SAFE)
 # =========================================================
 
 DATA_FILE = "agri_loan_data.csv"
@@ -170,8 +159,11 @@ if not os.path.exists(DATA_FILE):
     generate_data().to_csv(DATA_FILE, index=False)
 
 df = pd.read_csv(DATA_FILE)
+
 X = df.drop(columns=["risk_flag"])
 y = df["risk_flag"]
+
+required_features = X.columns.tolist()
 
 prep = ColumnTransformer([
     ("cat", OneHotEncoder(handle_unknown="ignore"), ["previous_default"]),
@@ -187,7 +179,7 @@ pipe.fit(X, y)
 joblib.dump(pipe, MODEL_FILE)
 
 # =========================================================
-# FILE UPLOAD (INDICATIVE OUTPUT)
+# FILE UPLOAD (SAFE & ERROR-FREE)
 # =========================================================
 
 st.markdown("## 📂 Loan Risk Indicator (CSV / Excel)")
@@ -196,6 +188,13 @@ file = st.file_uploader("Upload CSV or Excel", ["csv","xlsx"])
 
 if file:
     data = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
+
+    missing = set(required_features) - set(data.columns)
+    if missing:
+        st.error(f"Missing required columns: {missing}")
+        st.stop()
+
+    data = data[required_features]
 
     data["Indicative_Risk_Category"] = pipe.predict(data)
     data["Confidence_%"] = (pipe.predict_proba(data).max(axis=1)*100).round(2)
@@ -207,12 +206,12 @@ if file:
     st.download_button("⬇ PDF", to_pdf(data), "risk_indicator.pdf")
 
 # =========================================================
-# LEGAL DISCLAIMER (STRONG)
+# LEGAL DISCLAIMER
 # =========================================================
 
 st.markdown("---")
 st.caption(
     "Disclaimer: This system provides general, non-binding advisory insights using publicly "
     "available open-source data. Outputs are indicative only and do not constitute financial, "
-    "agricultural, or legal advice. Users should consult qualified professionals before making decisions."
+    "agricultural, or legal advice."
 )
