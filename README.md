@@ -122,11 +122,12 @@ Technology is used strictly as a **support tool for financial analysis**, not as
 1. Install required packages  
    ```bash
    pip install -r requirements.txt
-
+ ```
 Run the application
 
  ```bash
  streamlit run app.py
+
 
 3.Upload an agricultural loan CSV file and explore insights
 
