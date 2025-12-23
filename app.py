@@ -188,13 +188,26 @@ if uploaded_file:
         st.subheader("✅ Prediction Results")
         st.dataframe(input_data)
 
-        csv = input_data.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️ Download Results CSV",
-            csv,
-            "loan_predictions.csv",
-            "text/csv"
-        )
+    csv = input_data.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Download CSV",
+        input_data.to_csv(index=False),
+        "loan_predictions.csv",
+        "text/csv"
+    )
+
+    st.download_button(
+        "Download Excel",
+        to_excel(input_data),
+        "loan_predictions.xlsx"
+    )
+
+    st.download_button(
+        "Download PDF",
+        to_pdf(input_data),
+        "loan_predictions.pdf"
+    )
+
 
     def to_excel(df):
         buffer = BytesIO()
