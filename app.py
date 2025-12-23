@@ -1,5 +1,6 @@
 # =========================================================
 # AGRICULTURAL LOAN DECISION SUPPORT SYSTEM (DSS)
+# FINAL POLISHED VERSION
 # Safe | Legal | Educational | Visual | Impactful
 # =========================================================
 
@@ -21,26 +22,56 @@ st.set_page_config(
     layout="wide"
 )
 
+# ---------------- CUSTOM UI STYLE ----------------
+st.markdown("""
+<style>
+    .main {background-color: #F9FFF9;}
+    h1, h2, h3 {color: #2E7D32;}
+    .stButton>button {background-color:#2E7D32; color:white; border-radius:8px;}
+    .stDownloadButton>button {background-color:#1B5E20; color:white;}
+    .css-1d391kg {background-color: #F1F8F4;}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("🌱 How to Use")
+st.sidebar.markdown("""
+1️⃣ Upload agricultural loan CSV  
+2️⃣ View **risk insights**, not approval  
+3️⃣ Read **improvement suggestions**  
+4️⃣ Use visuals to understand patterns  
+
+⚠️ This tool supports **learning & awareness**
+""")
+
+st.sidebar.divider()
+st.sidebar.info("📌 Educational Decision Support Tool")
+
 # ---------------- DISCLAIMER ----------------
 st.markdown("""
-## ⚠️ LEGAL DISCLAIMER
-This system is a **Decision Support System (DSS)** only.
+### ⚠️ Legal & Ethical Disclaimer
+This platform is a **Decision Support System (DSS)** created for:
 
-- NOT a bank / NBFC / RBI system  
-- NOT a loan approval authority  
-- Uses **synthetic logic & demo ML**  
-- No real farmer, Aadhaar, land registry or CIBIL data  
-- Outputs are **risk insights & educational suggestions**, not decisions  
+- Education & learning  
+- Farmer financial awareness  
+- NGO / cooperative training  
+- Policy & academic simulation  
 
-**Use for education, research, NGOs & training only**
+❌ Not a bank / NBFC / RBI system  
+❌ Not a loan approval authority  
+❌ No real customer or credit bureau data  
+
+**Outputs indicate risk patterns only, not decisions**
 """)
 
 st.divider()
 
 # ---------------- TITLE ----------------
 st.markdown("""
-<h1 style='text-align:center; color:#2E8B57;'>🌾 Agricultural Loan Risk & Insight Platform</h1>
-<p style='text-align:center;'>CSV Upload • Visual Analytics • Advisory Support</p>
+<h1 style='text-align:center;'>🌾 Agricultural Loan Risk & Advisory Dashboard</h1>
+<p style='text-align:center; font-size:17px;'>
+CSV Upload • Visual Insights • Improvement Guidance
+</p>
 """, unsafe_allow_html=True)
 
 # ---------------- DEMO DATA ----------------
@@ -103,17 +134,17 @@ if file:
     ]
 
     if not all(c in df.columns for c in required_cols):
-        st.error("❌ Invalid CSV format")
+        st.error("❌ CSV format mismatch. Please use the prescribed agricultural format.")
         st.stop()
 
     df["crop_type"] = le_crop.transform(df["crop_type"])
     df["irrigation_type"] = le_irrig.transform(df["irrigation_type"])
 
-    df["Risk_Prediction"] = model.predict(df)
+    df["Model_Output"] = model.predict(df)
 
     # ---------------- RISK CATEGORY ----------------
     def risk_label(row):
-        if row["Risk_Prediction"] == 1:
+        if row["Model_Output"] == 1:
             return "Low Risk"
         elif row["credit_score"] < 550:
             return "High Risk"
@@ -122,53 +153,57 @@ if file:
 
     df["Risk_Category"] = df.apply(risk_label, axis=1)
 
-    # ---------------- ADVISORY ENGINE (SAFE) ----------------
+    # ---------------- ADVISORY ENGINE ----------------
     def improvement_advice(row):
         advice = []
 
         if row["credit_score"] < 600:
-            advice.append("Improve repayment discipline & credit behaviour")
+            advice.append("Improve credit repayment discipline")
 
         if row["loan_amount"] > row["annual_farm_income"] * 1.5:
-            advice.append("Consider lower loan amount or phased borrowing")
+            advice.append("Consider lower or phased loan amount")
 
         if row["land_size_acres"] < 1:
-            advice.append("Small landholding – explore SHG / group-based lending")
+            advice.append("Explore SHG / group-based lending options")
 
         if row["irrigation_type"] == le_irrig.transform(["Rainfed"])[0]:
-            advice.append("Rainfed farming – irrigation support schemes may help")
+            advice.append("Irrigation support schemes may reduce risk")
 
         if row["existing_loans"] > 1:
-            advice.append("High loan burden – reduce existing liabilities")
+            advice.append("Reduce existing loan burden")
 
         if not advice:
             advice.append("Profile appears financially stable")
 
         return " | ".join(advice)
 
-    df["Improvement_Suggestions"] = df.apply(improvement_advice, axis=1)
+    df["Suggested_Improvements"] = df.apply(improvement_advice, axis=1)
 
     st.success("✅ Risk & Advisory Analysis Completed")
 
+    st.subheader("📋 Farmer-Level Risk & Advisory View")
     st.dataframe(df)
 
     # ---------------- DOWNLOAD CSV ----------------
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button(
-        "⬇️ Download Result CSV",
+        "⬇️ Download Analysis CSV",
         csv,
         "agri_loan_risk_advisory.csv",
         "text/csv"
     )
 
     # ---------------- VISUALS ----------------
-    st.header("📊 Decision Support Visuals")
+    st.divider()
+    st.header("📊 Dashboard Insights")
 
     col1, col2 = st.columns(2)
 
     with col1:
         fig, ax = plt.subplots()
-        df["Risk_Category"].value_counts().plot.pie(autopct="%1.1f%%", ax=ax)
+        df["Risk_Category"].value_counts().plot.pie(
+            autopct="%1.1f%%", ax=ax
+        )
         ax.set_ylabel("")
         ax.set_title("Risk Category Distribution")
         st.pyplot(fig)
@@ -181,22 +216,10 @@ if file:
 
     fig, ax = plt.subplots()
     ax.scatter(df["annual_farm_income"], df["loan_amount"])
-    ax.set_xlabel("Income")
+    ax.set_xlabel("Annual Farm Income")
     ax.set_ylabel("Loan Amount")
     ax.set_title("Income vs Loan Amount (Risk View)")
     st.pyplot(fig)
-
-    # ---------------- TOP RISK REASONS ----------------
-    st.header("🚩 Common Risk Drivers (Educational Insight)")
-    risk_reasons = {
-        "Low Credit Score": (df["credit_score"] < 600).sum(),
-        "High Loan vs Income": (df["loan_amount"] > df["annual_farm_income"] * 1.5).sum(),
-        "Rainfed Agriculture": (df["irrigation_type"] == le_irrig.transform(["Rainfed"])[0]).sum(),
-        "Multiple Existing Loans": (df["existing_loans"] > 1).sum()
-    }
-
-    reason_df = pd.DataFrame.from_dict(risk_reasons, orient="index", columns=["Count"])
-    st.bar_chart(reason_df)
 
     # ---------------- PDF REPORT ----------------
     def generate_pdf():
@@ -205,9 +228,9 @@ if file:
         styles = getSampleStyleSheet()
         story = []
 
-        story.append(Paragraph("Agricultural Loan Risk & Advisory Summary (Demo)", styles["Title"]))
+        story.append(Paragraph("Agricultural Loan Risk & Advisory Summary", styles["Title"]))
         story.append(Paragraph(
-            "This report is generated for educational and decision-support purposes only. "
+            "This report is generated for educational and analytical purposes only. "
             "It does not represent any bank or regulatory decision.",
             styles["Normal"]
         ))
@@ -222,20 +245,21 @@ if file:
     st.download_button(
         "⬇️ Download PDF Summary",
         pdf,
-        "agri_loan_risk_advisory_report.pdf",
+        "agri_loan_risk_summary.pdf",
         "application/pdf"
     )
 
 else:
-    st.info("📌 Upload CSV to start analysis")
+    st.info("📌 Upload CSV to begin risk & advisory analysis")
 
 # ---------------- FOOTER ----------------
 st.divider()
 st.markdown("""
-### 🌱 REAL-WORLD IMPACT
-✔ Farmer financial awareness & literacy  
-✔ NGO & cooperative decision support  
-✔ Early loan stress / NPA risk signals  
-✔ Policy & training simulations  
-✔ Strong portfolio project (B.Com + Analytics)
+### 🌾 Why This Project Matters
+✔ Improves farmer financial awareness  
+✔ Helps NGOs & cooperatives identify risk patterns  
+✔ Supports early loan stress understanding  
+✔ Ethical, explainable & legal by design  
+
+**Built as a Decision Support Tool — not a decision maker**
 """)
