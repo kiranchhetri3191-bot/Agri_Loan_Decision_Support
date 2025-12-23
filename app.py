@@ -1,6 +1,6 @@
 # app.py
-# Smart Farmer Advisory + Loan Risk System
-# State + City based Climate | Yield | Loan Prediction | Safe & Legal
+# Smart Farmer Advisory & Loan Risk Indicator System
+# SAFE | OPEN-SOURCE | NON-BINDING | EDUCATIONAL
 
 import os
 import requests
@@ -22,21 +22,23 @@ from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 
 # =========================================================
-# SAFE OPEN-SOURCE WEATHER (OPEN-METEO)
+# SAFE LOCATION SEARCH (OPENSTREETMAP – NON-PERSONAL)
 # =========================================================
 
-def get_lat_lon(city, state):
-    query = f"{city}, {state}, India"
-    url = "https://geocoding-api.open-meteo.com/v1/search"
-    params = {"name": query, "count": 1, "language": "en"}
-    r = requests.get(url, params=params, timeout=10)
-    data = r.json()
+def search_locations(query, state):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": f"{query}, {state}, India",
+        "format": "json",
+        "limit": 5
+    }
+    headers = {"User-Agent": "SmartFarmer-Advisory"}
+    r = requests.get(url, params=params, headers=headers, timeout=10)
+    return r.json() if r.status_code == 200 else []
 
-    if "results" not in data:
-        return None, None
-
-    return data["results"][0]["latitude"], data["results"][0]["longitude"]
-
+# =========================================================
+# SAFE WEATHER DATA (OPEN-METEO – INDICATIVE)
+# =========================================================
 
 def get_climate(lat, lon):
     url = "https://api.open-meteo.com/v1/forecast"
@@ -48,15 +50,15 @@ def get_climate(lat, lon):
         "timezone": "auto"
     }
     r = requests.get(url, params=params, timeout=10)
-    data = r.json()
+    d = r.json()
 
-    avg_temp = sum(data["daily"]["temperature_2m_mean"]) / 30
-    total_rain = sum(data["daily"]["precipitation_sum"])
+    avg_temp = np.mean(d["daily"]["temperature_2m_mean"])
+    total_rain = np.sum(d["daily"]["precipitation_sum"])
 
     return round(avg_temp, 1), round(total_rain, 1)
 
 # =========================================================
-# DOWNLOAD HELPERS
+# SAFE EXPORT HELPERS
 # =========================================================
 
 def to_excel(df):
@@ -66,17 +68,16 @@ def to_excel(df):
     buffer.seek(0)
     return buffer.getvalue()
 
-
 def to_pdf(df):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
-    elements = [Paragraph("Agricultural Loan Risk Report", styles["Title"])]
+    elements = [Paragraph("Indicative Loan Risk Report", styles["Title"])]
 
-    table = Table([df.columns.tolist()] + df.values.tolist(), repeatRows=1)
+    table = Table([df.columns.tolist()] + df.values.tolist())
     table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgreen),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.black),
+        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey)
     ]))
 
     elements.append(table)
@@ -89,21 +90,21 @@ def to_pdf(df):
 # =========================================================
 
 st.set_page_config(
-    page_title="Smart Farmer Advisory & Loan Risk System",
+    page_title="Smart Farmer Advisory System",
     page_icon="🌾",
     layout="wide"
 )
 
 st.markdown(
-    "<h1 style='text-align:center;color:#2E8B57;'>🌾 Smart Farmer Advisory & Loan Risk System</h1>",
+    "<h1 style='text-align:center;color:#2E8B57;'>🌾 Smart Farmer Advisory System</h1>",
     unsafe_allow_html=True
 )
 
 # =========================================================
-# PART 1: FARMER ADVISORY (STATE + CITY BASED)
+# LOCATION-BASED ADVISORY (SAFE)
 # =========================================================
 
-st.sidebar.header("📍 Location Based Advisory (India)")
+st.sidebar.header("📍 Location Advisory (India)")
 
 state = st.sidebar.selectbox(
     "State",
@@ -112,146 +113,106 @@ state = st.sidebar.selectbox(
         "Gujarat","Haryana","Himachal Pradesh","Jharkhand",
         "Karnataka","Kerala","Madhya Pradesh","Maharashtra",
         "Odisha","Punjab","Rajasthan","Tamil Nadu","Telangana",
-        "Uttar Pradesh","Uttarakhand","West Bengal","Other"
+        "Uttar Pradesh","Uttarakhand","West Bengal"
     ]
 )
 
-city = st.sidebar.text_input(
-    "City / Town / Village",
-    placeholder="e.g. Siliguri"
+search_text = st.sidebar.text_input(
+    "Search Village / Town / City",
+    placeholder="Start typing location name..."
 )
 
-soil_type = st.sidebar.selectbox(
-    "Soil Type",
-    ["Alluvial", "Black", "Red", "Laterite", "Sandy"]
-)
+locations = search_locations(search_text, state) if search_text else []
 
-season = st.sidebar.selectbox(
-    "Season",
-    ["Kharif", "Rabi", "Zaid"]
-)
+if locations:
+    options = {loc["display_name"]: loc for loc in locations}
+    selected = st.sidebar.selectbox("Select Location", list(options.keys()))
+    lat = float(options[selected]["lat"])
+    lon = float(options[selected]["lon"])
 
-land_size = st.sidebar.slider("Land Size (Acres)", 1, 20, 5)
+    temp, rain = get_climate(lat, lon)
 
-def yield_estimation(acres, rain, temp, soil, season):
-    base = 20
-    rain_factor = 0.7 if rain < 100 else 1.1 if rain < 400 else 0.9
-    temp_factor = 1.1 if 20 <= temp <= 35 else 0.85
+    st.sidebar.markdown("### 🌦 Regional Climate Indicator")
+    st.sidebar.write(f"🌡 Avg Temperature: {temp} °C")
+    st.sidebar.write(f"🌧 Rainfall (30 days): {rain} mm")
 
-    soil_factor = {
-        "Alluvial": 1.2,
-        "Black": 1.15,
-        "Red": 1.0,
-        "Laterite": 0.9,
-        "Sandy": 0.8
-    }[soil]
-
-    season_factor = {"Kharif": 1.1, "Rabi": 1.0, "Zaid": 0.9}[season]
-
-    return round(acres * base * rain_factor * temp_factor * soil_factor * season_factor, 2)
-
-if city:
-    lat, lon = get_lat_lon(city, state)
-
-    if lat:
-        temperature, rainfall = get_climate(lat, lon)
-
-        st.sidebar.markdown("### 🌦️ Auto Climate (Last 30 Days)")
-        st.sidebar.write(f"📍 {city}, {state}, India")
-        st.sidebar.write(f"🌡️ Avg Temp: **{temperature} °C**")
-        st.sidebar.write(f"🌧️ Rainfall: **{rainfall} mm**")
-
-        yield_est = yield_estimation(land_size, rainfall, temperature, soil_type, season)
-        st.sidebar.success(f"🌾 Estimated Yield: {yield_est} Quintals")
-
-        if rainfall < 100:
-            st.sidebar.warning("Low rainfall trend – irrigation recommended")
-        if temperature > 38:
-            st.sidebar.warning("Heat stress possible")
+    if rain < 100:
+        st.sidebar.info("Rainfall Trend: Low")
+    elif rain < 400:
+        st.sidebar.info("Rainfall Trend: Moderate")
     else:
-        st.sidebar.error("Location not found. Please check city/state.")
+        st.sidebar.info("Rainfall Trend: High")
 
 # =========================================================
-# PART 2: LOAN MODEL
+# LOAN RISK INDICATOR MODEL (NON-DECISION)
 # =========================================================
 
 DATA_FILE = "agri_loan_data.csv"
 MODEL_FILE = "loan_model.joblib"
 
-def generate_loan_data(n=1500):
+def generate_data(n=1500):
     rng = np.random.default_rng(42)
     df = pd.DataFrame({
-        "farmer_age": rng.integers(21, 70, n),
         "land_size_acres": rng.uniform(0.5, 20, n),
-        "crop_type": rng.choice(["Rice","Wheat","Cotton","Sugarcane","Pulses"], n),
         "annual_income": rng.integers(100000, 1500000, n),
-        "irrigation_available": rng.choice(["Yes","No"], n),
-        "existing_loan": rng.choice(["Yes","No"], n),
-        "previous_default": rng.choice(["Yes","No"], n, p=[0.15,0.85]),
         "credit_score": rng.integers(300, 900, n),
-        "loan_amount_requested": rng.integers(50000, 2000000, n),
-        "loan_tenure_years": rng.integers(1,7,n),
+        "previous_default": rng.choice(["Yes","No"], n, p=[0.15,0.85]),
     })
 
-    score = (
-        (df.credit_score >= 650).astype(int) +
-        (df.previous_default == "No").astype(int) +
-        (df.annual_income >= 300000).astype(int)
+    df["risk_flag"] = np.where(
+        (df.credit_score > 650) & (df.previous_default == "No"),
+        "Lower Risk",
+        "Higher Risk"
     )
-
-    df["loan_approved"] = np.where(score >= 2, "Yes", "No")
     return df
 
 if not os.path.exists(DATA_FILE):
-    generate_loan_data().to_csv(DATA_FILE, index=False)
+    generate_data().to_csv(DATA_FILE, index=False)
 
 df = pd.read_csv(DATA_FILE)
-X = df.drop(columns=["loan_approved"])
-y = df["loan_approved"]
+X = df.drop(columns=["risk_flag"])
+y = df["risk_flag"]
 
-preprocess = ColumnTransformer([
-    ("cat", OneHotEncoder(handle_unknown="ignore"), X.select_dtypes("object").columns),
-    ("num", "passthrough", X.select_dtypes(exclude="object").columns)
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["previous_default"]),
+    ("num", "passthrough", ["land_size_acres","annual_income","credit_score"])
 ])
 
-def train_model():
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, stratify=y)
-    pipe = Pipeline([
-        ("prep", preprocess),
-        ("model", RandomForestClassifier(n_estimators=200, random_state=42))
-    ])
-    pipe.fit(Xtr, ytr)
-    joblib.dump(pipe, MODEL_FILE)
-    return pipe
+pipe = Pipeline([
+    ("prep", prep),
+    ("model", RandomForestClassifier(n_estimators=150, random_state=42))
+])
 
-model = joblib.load(MODEL_FILE) if os.path.exists(MODEL_FILE) else train_model()
+pipe.fit(X, y)
+joblib.dump(pipe, MODEL_FILE)
 
 # =========================================================
-# PART 3: FILE UPLOAD & PREDICTION
+# FILE UPLOAD (INDICATIVE OUTPUT)
 # =========================================================
 
-st.markdown("## 📂 Loan Prediction via CSV / Excel")
+st.markdown("## 📂 Loan Risk Indicator (CSV / Excel)")
 
-file = st.file_uploader("Upload CSV or Excel", type=["csv","xlsx"])
+file = st.file_uploader("Upload CSV or Excel", ["csv","xlsx"])
 
 if file:
     data = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
 
-    data["Loan_Decision"] = model.predict(data)
-    data["Approval_Probability_%"] = (model.predict_proba(data).max(axis=1) * 100).round(2)
+    data["Indicative_Risk_Category"] = pipe.predict(data)
+    data["Confidence_%"] = (pipe.predict_proba(data).max(axis=1)*100).round(2)
 
     st.dataframe(data)
 
-    st.download_button("⬇️ CSV", data.to_csv(index=False), "loan_predictions.csv")
-    st.download_button("⬇️ Excel", to_excel(data), "loan_predictions.xlsx")
-    st.download_button("⬇️ PDF", to_pdf(data), "loan_predictions.pdf")
+    st.download_button("⬇ CSV", data.to_csv(index=False), "risk_indicator.csv")
+    st.download_button("⬇ Excel", to_excel(data), "risk_indicator.xlsx")
+    st.download_button("⬇ PDF", to_pdf(data), "risk_indicator.pdf")
 
 # =========================================================
-# FOOTER + LEGAL SAFETY
+# LEGAL DISCLAIMER (STRONG)
 # =========================================================
 
 st.markdown("---")
 st.caption(
-    "Disclaimer: Uses open-source weather data (Open-Meteo). "
-    "Outputs are indicative and for educational/advisory purposes only."
+    "Disclaimer: This system provides general, non-binding advisory insights using publicly "
+    "available open-source data. Outputs are indicative only and do not constitute financial, "
+    "agricultural, or legal advice. Users should consult qualified professionals before making decisions."
 )
