@@ -1,6 +1,6 @@
 # app.py
 # Smart Farmer Advisory + Loan Risk System
-# Location-based Climate | Yield | Loan Prediction | Safe & Legal
+# State + City based Climate | Yield | Loan Prediction | Safe & Legal
 
 import os
 import requests
@@ -19,21 +19,22 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 
 # =========================================================
 # SAFE OPEN-SOURCE WEATHER (OPEN-METEO)
 # =========================================================
 
-def get_lat_lon(place):
+def get_lat_lon(city, state):
+    query = f"{city}, {state}, India"
     url = "https://geocoding-api.open-meteo.com/v1/search"
-    params = {"name": place, "count": 1, "language": "en"}
+    params = {"name": query, "count": 1, "language": "en"}
     r = requests.get(url, params=params, timeout=10)
     data = r.json()
+
     if "results" not in data:
         return None, None
+
     return data["results"][0]["latitude"], data["results"][0]["longitude"]
 
 
@@ -93,24 +94,31 @@ st.set_page_config(
     layout="wide"
 )
 
-# =========================================================
-# TITLE
-# =========================================================
-
 st.markdown(
     "<h1 style='text-align:center;color:#2E8B57;'>🌾 Smart Farmer Advisory & Loan Risk System</h1>",
     unsafe_allow_html=True
 )
 
 # =========================================================
-# PART 1: FARMER ADVISORY (LOCATION BASED)
+# PART 1: FARMER ADVISORY (STATE + CITY BASED)
 # =========================================================
 
-st.sidebar.header("📍 Location Based Advisory")
+st.sidebar.header("📍 Location Based Advisory (India)")
 
-place = st.sidebar.text_input(
+state = st.sidebar.selectbox(
+    "State",
+    [
+        "Andhra Pradesh","Assam","Bihar","Chhattisgarh","Delhi",
+        "Gujarat","Haryana","Himachal Pradesh","Jharkhand",
+        "Karnataka","Kerala","Madhya Pradesh","Maharashtra",
+        "Odisha","Punjab","Rajasthan","Tamil Nadu","Telangana",
+        "Uttar Pradesh","Uttarakhand","West Bengal","Other"
+    ]
+)
+
+city = st.sidebar.text_input(
     "City / Town / Village",
-    placeholder="e.g. Birpara, Pune, Jalpaiguri"
+    placeholder="e.g. Siliguri"
 )
 
 soil_type = st.sidebar.selectbox(
@@ -142,13 +150,14 @@ def yield_estimation(acres, rain, temp, soil, season):
 
     return round(acres * base * rain_factor * temp_factor * soil_factor * season_factor, 2)
 
-if place:
-    lat, lon = get_lat_lon(place)
+if city:
+    lat, lon = get_lat_lon(city, state)
 
     if lat:
         temperature, rainfall = get_climate(lat, lon)
 
         st.sidebar.markdown("### 🌦️ Auto Climate (Last 30 Days)")
+        st.sidebar.write(f"📍 {city}, {state}, India")
         st.sidebar.write(f"🌡️ Avg Temp: **{temperature} °C**")
         st.sidebar.write(f"🌧️ Rainfall: **{rainfall} mm**")
 
@@ -160,7 +169,7 @@ if place:
         if temperature > 38:
             st.sidebar.warning("Heat stress possible")
     else:
-        st.sidebar.error("Location not found")
+        st.sidebar.error("Location not found. Please check city/state.")
 
 # =========================================================
 # PART 2: LOAN MODEL
@@ -207,7 +216,10 @@ preprocess = ColumnTransformer([
 
 def train_model():
     Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, stratify=y)
-    pipe = Pipeline([("prep", preprocess), ("model", RandomForestClassifier(n_estimators=200))])
+    pipe = Pipeline([
+        ("prep", preprocess),
+        ("model", RandomForestClassifier(n_estimators=200, random_state=42))
+    ])
     pipe.fit(Xtr, ytr)
     joblib.dump(pipe, MODEL_FILE)
     return pipe
