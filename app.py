@@ -47,6 +47,48 @@ st.sidebar.markdown("""
 st.sidebar.divider()
 st.sidebar.info("📌 Decision Support Tool")
 
+# ---------------- USER GUIDANCE (ADDED FEATURE) ----------------
+st.sidebar.subheader("🌾 How to Fill Crop & Irrigation")
+st.sidebar.markdown("""
+**Use text values only (no numeric codes):**
+
+**Crop Type**
+- Rice  
+- Wheat  
+- Maize  
+- Cotton  
+- Sugarcane  
+
+**Irrigation Type**
+- Rainfed  
+- Canal  
+- Borewell  
+
+📌 The system automatically converts these values internally.
+""")
+
+# ---------------- SAMPLE CSV (ADDED FEATURE) ----------------
+sample_csv = pd.DataFrame({
+    "farmer_age": [35],
+    "land_size_acres": [2.5],
+    "annual_farm_income": [350000],
+    "loan_amount": [200000],
+    "crop_type": ["Rice"],
+    "irrigation_type": ["Rainfed"],
+    "existing_loans": [1],
+    "credit_score": [680]
+})
+
+st.sidebar.markdown("📄 **Sample CSV Format**")
+st.sidebar.dataframe(sample_csv)
+
+st.sidebar.download_button(
+    "⬇️ Download Sample CSV",
+    sample_csv.to_csv(index=False).encode("utf-8"),
+    "sample_agri_loan_data.csv",
+    "text/csv"
+)
+
 # ---------------- DISCLAIMER ----------------
 st.markdown("""
 ### ⚠️ Legal & Ethical Disclaimer
@@ -61,17 +103,13 @@ This platform is a **Decision Support System (DSS)**.
 
 st.divider()
 
-# ---------------- TITLE (LOGO FIXED – MATCHES ICON) ----------------
+# ---------------- TITLE ----------------
 col1, col2 = st.columns([1, 8])
-
 with col1:
     st.image("logo.png", width=80)
-
 with col2:
     st.markdown("""
-    <h1 style='margin-bottom:0;'>
-    Agricultural Loan Risk & Advisory Dashboard
-    </h1>
+    <h1 style='margin-bottom:0;'>Agricultural Loan Risk & Advisory Dashboard</h1>
     <p style='font-size:17px; margin-top:5px;'>
     CSV Upload • Visual Insights • Improvement Guidance
     </p>
@@ -106,7 +144,6 @@ def generate_demo_data(n=7000):
 @st.cache_data
 def train_model():
     data = generate_demo_data()
-
     le_crop = LabelEncoder()
     le_irrig = LabelEncoder()
 
@@ -137,7 +174,7 @@ if file:
     ]
 
     if not all(c in df.columns for c in required_cols):
-        st.error("❌ CSV format mismatch.")
+        st.error("❌ CSV format mismatch. Please follow the sample format.")
         st.stop()
 
     df["crop_type"] = le_crop.transform(df["crop_type"])
@@ -145,7 +182,6 @@ if file:
 
     df["Model_Output"] = model.predict(df)
 
-    # ---------------- RISK CATEGORY ----------------
     def risk_label(row):
         if row["Model_Output"] == 1:
             return "Low Risk"
@@ -156,160 +192,26 @@ if file:
 
     df["Risk_Category"] = df.apply(risk_label, axis=1)
 
-    # ---------------- ADVISORY ENGINE ----------------
     def improvement_advice(row):
         advice = []
-
         if row["credit_score"] < 600:
             advice.append("Improve credit repayment discipline")
-
         if row["loan_amount"] > row["annual_farm_income"] * 1.5:
             advice.append("Consider lower or phased loan amount")
-
         if row["land_size_acres"] < 1:
             advice.append("Explore SHG / group-based lending")
-
         if row["irrigation_type"] == le_irrig.transform(["Rainfed"])[0]:
             advice.append("Irrigation support schemes may reduce risk")
-
         if row["existing_loans"] > 1:
             advice.append("Reduce existing loan burden")
-
         if not advice:
             advice.append("Profile appears financially stable")
-
         return " | ".join(advice)
 
     df["Suggested_Improvements"] = df.apply(improvement_advice, axis=1)
 
     st.success("✅ Risk & Advisory Analysis Completed")
     st.dataframe(df)
-
-    st.download_button(
-        "⬇️ Download Analysis CSV",
-        df.to_csv(index=False).encode("utf-8"),
-        "agri_loan_risk_advisory.csv",
-        "text/csv"
-    )
-
-    # ================= VISUALS =================
-    st.divider()
-    st.header("📊 Dashboard Insights")
-
-    risk_order = ["Low Risk", "Medium Risk", "High Risk"]
-    risk_colors = {
-        "Low Risk": "#2E7D32",
-        "Medium Risk": "#F9A825",
-        "High Risk": "#C62828"
-    }
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        risk_counts = df["Risk_Category"].value_counts().reindex(risk_order, fill_value=0)
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.pie(
-            risk_counts.values,
-            labels=risk_counts.index,
-            autopct="%1.1f%%",
-            startangle=90,
-            colors=[risk_colors[r] for r in risk_counts.index],
-            wedgeprops={"edgecolor": "white"}
-        )
-        ax.set_title("Overall Risk Distribution", fontsize=14, fontweight="bold")
-        st.pyplot(fig)
-
-    with col2:
-        fig, ax = plt.subplots(figsize=(7, 5))
-        ax.hist(df["credit_score"], bins=25, color="#4CAF50", edgecolor="black")
-        ax.set_title("Credit Score Distribution", fontsize=14, fontweight="bold")
-        ax.set_xlabel("Credit Score")
-        ax.set_ylabel("Number of Farmers")
-        ax.grid(axis="y", alpha=0.3)
-        st.pyplot(fig)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.scatter(
-        df["annual_farm_income"],
-        df["loan_amount"],
-        c=df["Risk_Category"].map(risk_colors),
-        alpha=0.6
-    )
-    ax.set_title("Income vs Loan Amount (Risk Perspective)", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Annual Farm Income (₹)")
-    ax.set_ylabel("Loan Amount (₹)")
-    ax.grid(alpha=0.3)
-    st.pyplot(fig)
-
-    st.subheader("Risk Category Count")
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.bar(
-        risk_counts.index,
-        risk_counts.values,
-        color=[risk_colors[r] for r in risk_counts.index]
-    )
-    ax.set_title("Number of Farmers by Risk Level", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Risk Category")
-    ax.set_ylabel("Count")
-    ax.grid(axis="y", alpha=0.3)
-    st.pyplot(fig)
-
-    st.subheader("Income Distribution by Risk Category")
-    fig, ax = plt.subplots(figsize=(8, 5))
-    df.boxplot(column="annual_farm_income", by="Risk_Category", ax=ax, grid=True)
-    ax.set_title("Annual Farm Income by Risk Level", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Risk Category")
-    ax.set_ylabel("Annual Farm Income (₹)")
-    plt.suptitle("")
-    st.pyplot(fig)
-
-    st.subheader("Crop Type vs Risk Category")
-    crop_risk = df.groupby("crop_type")["Risk_Category"].value_counts().unstack().reindex(columns=risk_order, fill_value=0)
-    fig, ax = plt.subplots(figsize=(9, 5))
-    crop_risk.plot(kind="bar", stacked=True, color=[risk_colors[r] for r in risk_order], ax=ax)
-    ax.set_title("Crop-wise Risk Distribution", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Crop Type")
-    ax.set_ylabel("Number of Farmers")
-    ax.legend(title="Risk Category")
-    ax.grid(axis="y", alpha=0.3)
-    st.pyplot(fig)
-
-    st.subheader("Irrigation Type vs Risk Category")
-    irrig_risk = df.groupby("irrigation_type")["Risk_Category"].value_counts().unstack().reindex(columns=risk_order, fill_value=0)
-    fig, ax = plt.subplots(figsize=(8, 5))
-    irrig_risk.plot(kind="bar", stacked=True, color=[risk_colors[r] for r in risk_order], ax=ax)
-    ax.set_title("Irrigation Impact on Risk", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Irrigation Type")
-    ax.set_ylabel("Number of Farmers")
-    ax.legend(title="Risk Category")
-    ax.grid(axis="y", alpha=0.3)
-    st.pyplot(fig)
-
-    # ---------------- PDF REPORT ----------------
-    def generate_pdf():
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        styles = getSampleStyleSheet()
-        story = []
-
-        story.append(Paragraph("Agricultural Loan Risk & Advisory Summary", styles["Title"]))
-        story.append(Paragraph(
-            "Educational & decision-support report only. Not a financial decision.",
-            styles["Normal"]
-        ))
-        story.append(Paragraph(f"Total Records Analysed: {len(df)}", styles["Normal"]))
-        story.append(Paragraph(str(risk_counts), styles["Normal"]))
-
-        doc.build(story)
-        buffer.seek(0)
-        return buffer
-
-    st.download_button(
-        "⬇️ Download PDF Summary",
-        generate_pdf(),
-        "agri_loan_risk_summary.pdf",
-        "application/pdf"
-    )
 
 else:
     st.info("📌 Upload CSV to begin analysis")
