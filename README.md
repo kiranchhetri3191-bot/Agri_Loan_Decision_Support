@@ -159,6 +159,9 @@ To use this application, upload a CSV file with the following **required column 
 |----------|------------|
 | crop_type | Type of crop cultivated (Rice, Wheat, Maize, Cotton, Sugarcane) |
 
+| Field Name       | Description |
+|----------------|-------------|
+| irrigation_type | Primary source of irrigation (Rainfed, Canal, Borewell) |
 
 
 ## ⚖️ Legal & Ethical Note
